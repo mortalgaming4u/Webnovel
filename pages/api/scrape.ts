@@ -1,4 +1,4 @@
-import cheerio, { CheerioAPI, Cheerio } from 'cheerio';
+import cheerio, { CheerioAPI } from 'cheerio';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 type Chapter = {
@@ -27,7 +27,7 @@ export default async function handler(
         .json({ status: 'error', message: 'Only POST allowed' });
     }
 
-    const body = await readJson(req);
+    const body = req.body;
     const url = body?.url ? String(body.url) : null;
     if (!url) {
       return res
@@ -40,7 +40,6 @@ export default async function handler(
       DEFAULT_MAX
     );
 
-    // Fetch the entry page once
     const entryHtml = await fetchHtml(url);
     if (!entryHtml) {
       return res
@@ -48,7 +47,6 @@ export default async function handler(
         .json({ status: 'error', message: 'Failed to fetch URL' });
     }
 
-    // Heuristics: index page?
     const maybeIndex = looksLikeIndex(url) || pageLooksLikeIndex(entryHtml);
 
     let chapterUrls: string[] = [];
@@ -74,7 +72,6 @@ export default async function handler(
     }
 
     if (!chapterUrls.length) {
-      // single-page extraction
       const single = await fetchChapterPage(url);
       const chap: Chapter = {
         idx: 1,
@@ -87,7 +84,6 @@ export default async function handler(
         .json({ status: 'success', chapters_scraped: 1, chapters: [chap] });
     }
 
-    // Dedupe + cap
     chapterUrls = dedupeUrls(chapterUrls).slice(0, maxChapters);
 
     const chapters: Chapter[] = [];
@@ -109,7 +105,6 @@ export default async function handler(
           content: `⚠️ Failed to fetch chapter: ${String(err).slice(0, 150)}`
         });
       }
-      // polite delay
       await sleep(120);
     }
 
@@ -268,98 +263,70 @@ function tryGetSiteIndexUrl(url: string): string | null {
       const m = u.pathname.match(/\/book\/(\d+)\.html/);
       if (m) return `${u.protocol}//${u.host}/book/${m[1]}.html`;
     }
-    if (/ixdzs\.tw/.test(u.host)) {
-      const m = u.pathname.match(/\/read\/(\d+)/);
-      if (m) return `${u.protocol}//${u.host}/read/${m[1]}/`;
+    if (/mianhuatang\.cc/.test(u.host)) {
+      const parts = u.pathname.split('/');
+      if (parts.length >= 3) {
+        return `${u.protocol}//${u.host}/${parts[1]}/${parts[2]}/`;
+      }
     }
-  } catch {}
-  return null;
-}
-
-function detectIncrementPattern(url: string): {
-  prefix: string;
-  current: number;
-  suffix: string;
-  rawMatch: string;
-} | null {
-  const patterns = [
-    { rx: /(\/txt\/\d+\/)(\d+)(\/?)/i, prefixGroup: 1, numGroup: 2, suffixGroup: 3 },
-    { rx: /(\/read\/\d+\/p)(\d+)(\.html?)/i, prefixGroup: 1, numGroup: 2, suffixGroup: 3 },
-    { rx: /(\/chapter-)(\d+)([^\/]*)$/i, prefixGroup: 1, numGroup: 2, suffixGroup: 3 },
-    { rx: /(\/p)(\d+)([^\/]*)$/i, prefixGroup: 1, numGroup: 2, suffixGroup: 3 },
-    { rx: /(\/)(\d+)\.html?$/i, prefixGroup: 1, numGroup: 2, suffixGroup: 0 },
-    { rx: /(\/)(\d+)\/?$/i, prefixGroup: 1, numGroup: 2, suffixGroup: 0 }
-  ];
-
-  for (const p of patterns) {
-    const m = url.match(p.rx);
-    if (m) {
-      const num = parseInt(m[p.numGroup], 10);
-      const prefix = url.slice(0, url.indexOf(m[0])) + (m[p.prefixGroup] || '');
-      const suffix = p.suffixGroup && m[p.suffixGroup] ? m[p.suffixGroup] : '';
-      return { prefix, current: num, suffix, rawMatch: m[0] };
-    }
+  } catch {
+    return null;
   }
   return null;
 }
 
-function generateFromPattern(
-  pattern: { prefix: string; current: number; suffix: string },
-  maxChapters: number
-): string[] {
+function detectIncrementPattern(url: string): { base: string; start: number; ext: string } | null {
+  const m = url.match(/^(.*?)(\d+)(\.\w+)?$/);
+  if (!m) return null;
+  return {
+    base: m[1],
+    start: parseInt(m[2], 10),
+    ext: m[3] || ''
+  };
+}
+
+function generateFromPattern(pattern: { base: string; start: number; ext: string }, count: number): string[] {
   const out: string[] = [];
-  for (let i = pattern.current; i < pattern.current + maxChapters; i++) {
-    out.push(`${pattern.prefix}${i}${pattern.suffix || ''}`);
+  for (let i = 0; i < count; i++) {
+    out.push(`${pattern.base}${pattern.start + i}${pattern.ext}`);
   }
   return out;
 }
 
-function looksLikeIndex(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (/index|bookinfo|catalog|mulu|chapterlist|toc|list/i.test(u.pathname))
-      return true;
-    if (/\/book\/\d+(\/|\.html)?$/i.test(u.pathname)) return true;
-  } catch {}
-  return false;
-}
-
 function pageLooksLikeIndex(html: string): boolean {
   const $ = cheerio.load(html);
-  const text = $('body').text().slice(0, 1000);
-  if (/章節|章节|目錄|目录|章節目錄/i.test(text)) return true;
-  if ($('a').length > 40) return true;
-  return false;
+  const linkCount = $('a').length;
+  const chapterish = $('a').filter((_, el) => {
+    const text = $(el).text().trim();
+    return /(第\s*\d+\s*章)|Chapter\s*\d+/i.test(text);
+  }).length;
+  return linkCount > 50 && chapterish > 10;
 }
 
-function pickLargestTextBlock($: CheerioAPI): Cheerio {
-  let best: Cheerio | null = null;
-  let bestScore = 0;
-  $('div, section, article, main').each((_, el) => {
-    const txt = $(el).text().trim();
-    if (txt.length > bestScore) {
-      bestScore = txt.length;
+function looksLikeIndex(url: string): boolean {
+  return /(index|list|catalog|mulu|chapterlist)/i.test(url);
+}
+
+function pickLargestTextBlock($: CheerioAPI): cheerio.Cheerio<cheerio.Element> | null {
+  let maxLen = 0;
+  let best: cheerio.Cheerio<cheerio.Element> | null = null;
+  $('body *').each((_, el) => {
+    const text = $(el).text().trim();
+    if (text.length > maxLen) {
+      maxLen = text.length;
       best = $(el);
     }
   });
-  return best as Cheerio;
+  return best;
 }
 
-function normalizeWhitespace(s: string): string {
-  return s
-    .replace(/\r/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]+\n/g, '\n')
-    .trim();
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\r/g, '')
+             .replace(/\n{3,}/g, '\n\n')
+             .replace(/[ \t]{2,}/g, ' ')
+             .trim();
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function readJson(req: NextApiRequest): Promise<any> {
-  const chunks: Uint8Array[] = [];
-  for await (const c of req) chunks.push(c);
-  const s = Buffer.concat(chunks).toString('utf8');
-  return s ? JSON.parse(s) : {};
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
