@@ -1,4 +1,4 @@
-import cheerio from 'cheerio';
+import cheerio, { CheerioAPI, Cheerio } from 'cheerio';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 type Chapter = {
@@ -332,8 +332,8 @@ function pageLooksLikeIndex(html: string): boolean {
   return false;
 }
 
-function pickLargestTextBlock($: cheerio.Root): cheerio.Cheerio {
-  let best: cheerio.Cheerio | null = null;
+function pickLargestTextBlock($: CheerioAPI): Cheerio {
+  let best: Cheerio | null = null;
   let bestScore = 0;
   $('div, section, article, main').each((_, el) => {
     const txt = $(el).text().trim();
@@ -342,7 +342,7 @@ function pickLargestTextBlock($: cheerio.Root): cheerio.Cheerio {
       best = $(el);
     }
   });
-  return best as cheerio.Cheerio;
+  return best as Cheerio;
 }
 
 function normalizeWhitespace(s: string): string {
