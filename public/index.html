@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Novel Reader • Scraper</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body data-theme="light">
+  <div class="app">
+    <aside class="sidebar card">
+      <div class="brand">📚 Novel Reader</div>
+
+      <label class="small">Paste book index or chapter URL</label>
+      <input id="urlInput" type="text" placeholder="https://ixdzs.tw/read/38804/p1.html" />
+      <div class="toolbar">
+        <button id="extractBtn" class="primary">Extract</button>
+        <button id="scrapeBookBtn">📚 Fetch Full Book</button>
+      </div>
+
+      <label class="toggle small"><input id="lockPattern" type="checkbox" checked /> Lock Pattern</label>
+
+      <div style="margin-top:12px;">
+        <div class="small">History</div>
+        <ul id="urlHistoryList" class="history-list"></ul>
+        <button id="clearHistoryBtn" class="small">Clear History</button>
+      </div>
+    </aside>
+
+    <main class="main card">
+      <div class="header-row">
+        <h2 id="bookTitle">Reader</h2>
+        <div id="chapterDisplay" class="small"></div>
+      </div>
+
+      <div class="toolbar">
+        <button id="prevBtn" disabled>◀ Prev</button>
+        <button id="nextBtn" disabled>Next ▶</button>
+        <button id="copyBtn">Copy</button>
+        <label class="small"> <input id="forceExtract" type="checkbox"> Force</label>
+      </div>
+
+      <div id="statusIndicator" class="small" style="margin-top:8px"></div>
+
+      <div id="extractedText" class="extract-box">Your extracted content will appear here...</div>
+
+      <div class="header-row" style="margin-top:8px">
+        <div id="wordCount" class="small">0 words</div>
+        <div>
+          <button id="libreranslateBtn">🔤 Libreranslate (EN)</button>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div id="progressBar" class="progress"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+</html>
