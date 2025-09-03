@@ -1,14 +1,13 @@
-export function loadHistory(): string[] {
-  if (typeof window === "undefined") return [];
-  return JSON.parse(localStorage.getItem("urlHistory") || "[]");
+export function saveJSON(key: string, value: any) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
-
-export function addHistory(url: string) {
-  if (typeof window === "undefined") return;
-  let history = loadHistory();
-  if (!history.includes(url)) {
-    history.unshift(url);
-    if (history.length > 10) history.pop();
-    localStorage.setItem("urlHistory", JSON.stringify(history));
-  }
+export function loadJSON<T = any>(key: string): T | null {
+  try {
+    const s = localStorage.getItem(key);
+    if (!s) return null;
+    return JSON.parse(s) as T;
+  } catch { return null; }
+}
+export function removeItem(key: string) {
+  try { localStorage.removeItem(key); } catch {}
 }
