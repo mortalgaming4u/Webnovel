@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import ProgressBar from "./ProgressBar";
-
-type Chap = { idx?: number; url?: string; title?: string; content?: string };
+import { Chap } from "../type/chap"; // ← import reusable type
 
 type ReaderProps = {
   chapterText: string;
@@ -19,16 +18,16 @@ export default function Reader({ chapterText, setChapterText, progress, setProgr
   useEffect(() => {
     const keys = Object.keys(localStorage).filter(k => k.startsWith("book:meta:"));
     if (keys.length) {
-      // pick latest
       const meta = JSON.parse(localStorage.getItem(keys[0]) || "{}");
       const key = keys[0].replace("book:meta:", "");
       setBookKey(key);
       const arr = JSON.parse(localStorage.getItem(`book:${key}:chapters`) || "[]");
       setLocalChapters(Array.isArray(arr) ? arr : []);
       setCurrentIdx(meta?.lastChapterIndex ?? 0);
-      if (Array.isArray(arr) && arr[0]) setChapterText(arr[0].content || arr[0].text || "");
+      if (Array.isArray(arr) && arr[0]) {
+        setChapterText(arr[0].content || arr[0].text || "");
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -65,7 +64,6 @@ export default function Reader({ chapterText, setChapterText, progress, setProgr
     setCurrentIdx(i);
     setChapterText(localChapters[i].content || localChapters[i].text || "");
     setProgress(Math.round(((i + 1) / localChapters.length) * 100));
-    // persist last index
     if (bookKey) {
       const meta = JSON.parse(localStorage.getItem(`book:meta:${bookKey}`) || "{}");
       meta.lastChapterIndex = i;
@@ -76,6 +74,7 @@ export default function Reader({ chapterText, setChapterText, progress, setProgr
   function prev() {
     if (localChapters.length && currentIdx > 0) loadLocalChapter(currentIdx - 1);
   }
+
   function next() {
     if (localChapters.length && currentIdx < localChapters.length - 1) loadLocalChapter(currentIdx + 1);
   }
@@ -94,7 +93,9 @@ export default function Reader({ chapterText, setChapterText, progress, setProgr
       </div>
 
       <div className="reader-box mb-3" id="readerBox" style={{ minHeight: 320 }}>
-        <pre id="chapterContent" className="whitespace-pre-wrap">{chapterText || "No content. Use the sidebar to extract or fetch a book."}</pre>
+        <pre id="chapterContent" className="whitespace-pre-wrap">
+          {chapterText || "No content. Use the sidebar to extract or fetch a book."}
+        </pre>
       </div>
 
       <div className="flex items-center gap-3">
@@ -105,14 +106,17 @@ export default function Reader({ chapterText, setChapterText, progress, setProgr
         </div>
       </div>
 
-      {/* local chapter list (if loaded) */}
-      {localChapters && localChapters.length > 0 && (
+      {localChapters.length > 0 && (
         <div className="mt-4">
           <div className="text-sm font-medium mb-2">Chapters</div>
           <div className="h-48 overflow-y-auto border rounded p-2 bg-white">
             <ul>
               {localChapters.map((c, i) => (
-                <li key={i} className={`cursor-pointer text-sm py-1 ${i === currentIdx ? "font-semibold" : ""}`} onClick={() => loadLocalChapter(i)}>
+                <li
+                  key={i}
+                  className={`cursor-pointer text-sm py-1 ${i === currentIdx ? "font-semibold" : ""}`}
+                  onClick={() => loadLocalChapter(i)}
+                >
                   {c.title || `Chapter ${c.idx || i + 1}`}
                 </li>
               ))}
