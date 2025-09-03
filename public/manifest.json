@@ -1,15 +1,11 @@
 {
-  "name": "My Novel Reader",
-  "short_name": "NovelReader",
+  "name": "Novel Reader",
+  "short_name": "Reader",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1e293b",
+  "theme_color": "#007acc",
   "icons": [
-    {
-      "src": "/logo.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "/favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" }
   ]
 }
