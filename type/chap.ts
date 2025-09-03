@@ -3,5 +3,5 @@ export type Chap = {
   url?: string;
   title?: string;
   content?: string;
-  text?: string; // ← resolves your Reader.tsx error
+  text?: string; // fallback field for older/local chapter formats
 };
